@@ -7,12 +7,11 @@ def track_satellite(lat, lon):
     satellites = load.tle_file(url, reload = True)
     
     if not satellites:
-        print("No Satellites were found check the data file.")
-        return
+        print("No Satellites were found check the data file!")
+        return;
 
     iss = satellites[0]
-    
-    
+
     observer = wgs84.latlon(lat,lon)
     t0 = ts.now()
     t1 = ts.utc(t0.utc_datetime().year, t0.utc_datetime().month, t0.utc_datetime().day + 1)
@@ -21,8 +20,8 @@ def track_satellite(lat, lon):
     print(f"----Live Location for ISS: {lat}N, {lon}E")
     for ti, event in zip(times, events):
         name = ('rise', 'culminate', 'set')[event]
-        print(f"{ti.utc_strftime('%Y-%m-%d %H:%M:%S')} UTC")
-
+        print(f"{ti.utc_strftime('%Y-%m-%d %H:%M:%S')} UTC \n Status:{name}") 
+        
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description= "Satellite Pass Prediction")
