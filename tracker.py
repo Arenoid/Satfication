@@ -1,9 +1,11 @@
 import time
 import argparse
+import urllib.error
 from pathlib import Path
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from skyfield.api import load,wgs84
+from skyfield.sgp4lib import EarthSatellite
 
 app = Flask(__name__)
 CORS(app)
@@ -12,23 +14,34 @@ class SatelliteEngine:
     def __init__(self, norad_id: int, cache_duration: int = 86400):
         self.norad_id = norad_id
         self.cache_duration = cache_duration
-        self.filename = Path(f"sat_{norad_id}.tle")
+        self.filename = Path(f'sat_{norad_id}.tle')
 
     def get_satellite(self):
-        if self.filename.exists() and (time.time() - self.filename.stat().st_mtime< self.cache_duration):
-            satellites = load.tle_file(str(self.filename))
+        satellites = None
 
-        else:
-            url = f'https://celestrak.org/NORAD/elements/gp.php?CATNR={self.norad_id}&FORMAT=TLE'
-            satellites = load.tle_file(url, reload=True, filename=str(self.filename))
-
+        if self.filename.exists() and (time.time()- self.filename.stat().st_mtime < self.cache_duration):
+            try:
+                print(f"Loading..")
+                satellites = load.tle_file(str(self.filename))
+            except Exception:
+                print("Corrupted! Deleting the file")
+                self.filename.unlink(missing_ok=True)
+            
         if not satellites:
-            raise ValueError(f"Failed to parse TLE data for: {self.norad_id}")
-        
+                print("Downloading data..")
+                url = f'https://celestrak.org/NORAD/elements/gp.php?CATNR={self.norad_id}&FORMAT=TLE'
+                try:
+                    satellites = load.tle_file(url, reload = True, filename=str(self.filename))
+                except urllib.error.HTTPError as e:
+                    raise ValueError(f"Satellite ID {self.norad_id} not found in CelesTrak")
+                except Exception as e:
+                    raise ValueError(f"Network Error")
+                
+        if not satellites:
+            raise ValueError(f"Failed to parse TLE for ID: {self.norad_id}")
+            
         return satellites[0]
     
-
-
 class PassPredicter:
     def __init__(self, satellite, lat:float, lon: float, horizon_degrees: float = 10.0):
         self.satellite = satellite
