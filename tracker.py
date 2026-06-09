@@ -1,32 +1,82 @@
+import time
 import argparse
-from skyfield.api import load, wgs84 , EarthSatellite
+from pathlib import Path
+from flask import Flask, jsonify, request
+from flask_cors import CORS
+from skyfield.api import load,wgs84
 
-def track_satellite(lat, lon):
-    ts = load.timescale()
-    url = 'https://celestrak.org/NORAD/elements/gp.php?CATNR=25544&FORMAT=TLE'
-    satellites = load.tle_file(url, reload = True)
-    
-    if not satellites:
-        print("No Satellites were found check the data file!")
-        return;
+app = Flask(__name__)
+CORS(app)
 
-    iss = satellites[0]
+class SatelliteEngine:
+    def __init__(self, norad_id: int, cache_duration: int = 86400):
+        self.norad_id = norad_id
+        self.cache_duration = cache_duration
+        self.filename = Path(f"sat_{norad_id}.tle")
 
-    observer = wgs84.latlon(lat,lon)
-    t0 = ts.now()
-    t1 = ts.utc(t0.utc_datetime().year, t0.utc_datetime().month, t0.utc_datetime().day + 1)
+    def get_satellite(self):
+        if self.filename.exists() and (time.time() - self.filename.stat().st_mtime< self.cache_duration):
+            satellites = load.tle_file(str(self.filename))
 
-    times, events = iss.find_events(observer, t0, t1, altitude_degrees = 10.0)
-    print(f"----Live Location for ISS: {lat}N, {lon}E")
-    for ti, event in zip(times, events):
-        name = ('rise', 'culminate', 'set')[event]
-        print(f"{ti.utc_strftime('%Y-%m-%d %H:%M:%S')} UTC \n Status:{name}") 
+        else:
+            url = f'https://celestrak.org/NORAD/elements/gp.php?CATNR={self.norad_id}&FORMAT=TLE'
+            satellites = load.tle_file(url, reload=True, filename=str(self.filename))
+
+        if not satellites:
+            raise ValueError(f"Failed to parse TLE data for: {self.norad_id}")
         
+        return satellites[0]
+    
+
+
+class PassPredicter:
+    def __init__(self, satellite, lat:float, lon: float, horizon_degrees: float = 10.0):
+        self.satellite = satellite
+        self.observer = wgs84.latlon(lat,lon)
+        self.horizon = horizon_degrees
+        self.ts = load.timescale()
+
+
+    def generate_passes(self):
+        t0 = self.ts.now()
+        t1 = self.ts.utc(t0.utc_datetime().year, t0.utc_datetime().month, t0.utc_datetime().day + 1)
+        times, events = self.satellite.find_events(self.observer, t0, t1, altitude_degrees = self.horizon)
+
+        pass_list = []
+        for ti, event in zip(times, events):
+            event_name = ('rise', 'culminate', 'set')[event]
+            pass_list.append({
+                "timestamp" : ti.utc_strftime('%Y-%m-%d %H:%M:%S'),
+                "status":event_name
+            })
+        return pass_list
+    
+
+
+@app.route('/api/track', methods = ['GET'])
+def get_satellite_passes():
+    try:
+        lat = float(request.args.get('lat', 27.26))
+        lon = float(request.args.get('lon', 85.36))
+        sat_id = int(request.args.get('sat', 25544))
+
+        engine = SatelliteEngine(norad_id = sat_id)
+        satellite = engine.get_satellite()
+
+        predicter = PassPredicter(satellite, lat,lon)
+        passes = predicter.generate_passes()
+
+        return jsonify({
+            "success" :True,
+            "satellite_name": satellite.name.strip(),
+            "norad_id": sat_id,
+            "observer": {"lat": lat, "lon": lon},
+            "passes":passes
+        })
+    
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+    
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description= "Satellite Pass Prediction")
-    parser.add_argument("--Lat", type = float, required=True, help = "Latitude of observer")
-    parser.add_argument("--lon", type = float, required = True, help = "Longitude of the observer")
-
-    args = parser.parse_args()
-    track_satellite(args.Lat, args.lon)
+    app.run(debug=True, port = 5000)
