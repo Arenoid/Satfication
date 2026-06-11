@@ -24,9 +24,11 @@ try {
   if(data.success){
     setTrackingData(data);
   }else{
+    setTrackingData(null);
     setError(data.error || "Failed to fetch data.");
   }
 } catch (err){
+  setTrackingData(null);
   setError("Unable to connect to tracking server!");
 } finally{
   setLoading(false);
@@ -80,37 +82,43 @@ return (
       </button>
     </form>
 
-    <SatelliteMap lat={lat} lon={lon}/>
+    <SatelliteMap 
+    lat={lat} 
+    lon={lon}
+    satLat={trackingData?.satellite_lat}
+    satLon={trackingData?.satellite_lon}
+    satName = {trackingData?.satellite_name}
+    pathPoints={trackingData?.path_coordinates} 
+    />
 
     {error && (
-      <div className='p-3 bg-red-100 border border -red - 400 rounded mb-6'>
+      <div className='p-3 bg-red-100 border border-red-400 rounded mb-6'>
         <strong>Error:</strong>{error}
       </div>
     )}
-
-    {trackingData && (
-      <div className= "border rounded-lg overflow-hidden">
-        <div className = "bg-gray-100 p-4 border-b">
-          <h2 className='text-xl font-bold'>{trackingData.satellite_name}</h2>
-          <p className="text-sm text-gray-600">NORAD ID: #{trackingData.norad_id} | Observer: {trackingData.observer.lat}°, {trackingData.observer.lon}°
+    {trackingData && trackingData.success && Array.isArray(trackingData.passes) && (
+      <div className = "border rounded-lg overflow-hidden shadow-sm bg-white">
+        <div className='bg-gray-100 p-4 border-b'>
+          <h2 className = 'text-xl font-bold text-gray-800'>{trackingData.satellite_name}</h2>
+          <p className = "text-sm text-gray-600 mt-0.5">
+            NORAD ID: #{trackingData.norad_id} | Observer: {trackingData.observer?.lat?? lat}°, {trackingData.observer?.lon ?? lon}°
           </p>
-      </div>
-
-      <ul className='divide-y'>
-        {trackingData.passes.map((pass, index) => (      
-          <li key = {index} className="p-3 flex justify-between items-center hover:bg-gray-50">
-            <span className={`text-xs font-bold uppercase px-2 py-0.5 rounded ${
-              pass.status === 'rise' ? 'bg-green-100 text-green-800' :
-              pass.status === 'culminate' ? 'bg-yellow-100 text-yellow-800':
-              'bg-red-100 text-red-800'
-            }`}>
+          </div>
+          <ul className='divide-y'>
+            {trackingData.passes.map((pass,index) =>(
+             <li key = {index} className ="p-3 flex justify-between items-center hover:bg-gray-50 transition-colors">
+              <span className = {`text-xs font-bold uppercase px-2 py-0.5 rounded ${
+                pass.status === 'rise'? 'bg-green-100 text-green-800':
+                pass.status === 'culminate' ? 'bg-yellow-100 text-yellow-800':
+                'bg-red-100 text-red-800'
+              }`}>
               {pass.status}
-            </span>
+              </span>
               <span className='font-mono text-sm text-gray-700'>{pass.timestamp} UTC</span>
-          </li>
-        ))}
-      </ul>
-      </div>
+             </li> 
+            ))}
+          </ul>
+        </div>
     )}
     </div>
   )
