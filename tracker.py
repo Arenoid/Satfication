@@ -69,8 +69,8 @@ class PassPredicter:
 @app.route('/api/track', methods = ['GET'])
 def get_satellite_passes():
     try:
-        lat = float(request.args.get('lat', 27.26))
-        lon = float(request.args.get('lon', 85.36))
+        lat = float(request.args.get('lat', 51.477928))
+        lon = float(request.args.get('lon', 0.001545))
         sat_id = int(request.args.get('sat', 25544))
 
         engine = SatelliteEngine(norad_id = sat_id)

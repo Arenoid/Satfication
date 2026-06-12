@@ -21,8 +21,8 @@ function MapRecenter({center}){
 }
 
 export default function SatelliteMap({lat, lon, satLat, satLon, satName, pathPoints}){
-    const parsedLat = parseFloat(lat) || 27.26;
-    const parsedLon = parseFloat(lon) || 85.36;
+    const parsedLat = parseFloat(lat) || 51.477928;
+    const parsedLon = parseFloat(lon) || -0.001545;
     const observerCoordinates = [parsedLat,parsedLon];
 
     const parsedSatLat = parseFloat(satLat);
@@ -47,9 +47,15 @@ export default function SatelliteMap({lat, lon, satLat, satLon, satName, pathPoi
             </div>
             <div className="flex-grow w-full h-[75vh] z-0">
                 <MapContainer
-                center = {observerCoordinates}
-                zoom = {6}
+                center = {[51.477928,-0.0015450]}
+                zoom = {3}
+                minZoom={2}
                 style = {{height:'100%', width: '100%'}}
+                maxBounds={[
+                    [-90, -180],
+                    [90,180]
+                ]}
+                maxBoundsViscosity={1}
                 >
                 <TileLayer
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
