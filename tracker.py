@@ -92,7 +92,7 @@ def get_satellite_passes():
         t_now = ts.now()
 
         for minutes in range (0, 120, 2):
-            t_future = t_now + (min/1440)
+            t_future = t_now + (minutes/1440)
             geo_future = satellite.at(t_future)
             sub_future = wgs84.subpoint(geo_future)
             raw_points.append([float(sub_future.latitude.degrees), float(sub_future.longitude.degrees)])
