@@ -31,15 +31,25 @@ export default function SatelliteMap({lat, lon, satLat, satLon, satName, pathPoi
     const parsedSatLon = parseFloat(satLon);
     const hasValidSatCoords = !isNaN(parsedSatLat) && !isNaN(parsedSatLon);
 
-    const validPathPoints = Array.isArray(pathPoints)
-    ? pathPoints.filter(point =>
-        Array.isArray(point)&&
-        point.length >= 2 &&
-        !isNaN(parseFloat(point[0]))&&
-        !isNaN(parseFloat(point[1]))
-    ).map(point => [parseFloat(point[0]), parseFloat(point[1])])
-    : [];
-    
+    const renderPathSegments = () => {
+        if (!Array.isArray(pathPoints) || pathPoints.length === 0) return []
+
+        if (Array.isArray(pathPoints[0]) && Array.isArray(pathPoints[0][0])) {
+            return pathPoints.map(segment =>
+                segment
+                    .filter(point => Array.isArray(point) && point.length >= 2 && !isNaN(parseFloat(point[0])) && !isNaN(parseFloat(point[1])))
+                    .map(point => [parseFloat(point[0]), parseFloat(point[1])])
+            ).filter(segment => segment.length > 0)
+        }
+
+        const flatPoints = pathPoints
+            .filter(point => Array.isArray(point) && point.length >= 2 && !isNaN(parseFloat(point[0])) && !isNaN(parseFloat(point[1])))
+            .map(point => [parseFloat(point[0]), parseFloat(point[1])])
+
+        return flatPoints.length > 0 ? [flatPoints] : []
+    }
+
+    const validSegment = renderPathSegments();
 
     return(
         <div className = "border rounded-xl overflow-hidden shadow-md bg-white flex flex-col">
@@ -95,9 +105,10 @@ export default function SatelliteMap({lat, lon, satLat, satLon, satName, pathPoi
   
   
   
-                {pathPoints && pathPoints.length>0 && (
+                {validSegment.map((segment, index)=>
                     <Polyline
-                        positions={pathPoints}
+                        key={index}
+                        positions={segment}
                         pathOptions={{color: "#dc2626", weight:3, opacity:0.6, dashArray:`10,10`}}
                         />
                 )}

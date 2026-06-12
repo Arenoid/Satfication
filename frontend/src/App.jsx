@@ -37,7 +37,7 @@ try {
 
 return (   
     <div className='font-sans text-gray-900'>
-      <h1 className='text-2xl font-bold pb-2'>Satelite Pass Tracker</h1>
+      <h1 className='text-2xl font-bold pb-2'>Satelite Tracker</h1>
 
       <form onSubmit={handleTrack} className='space-y-4 bg-gray-50 border rounded'>
         <div>
@@ -78,7 +78,7 @@ return (
       </div>
 
       <button type = "submit" disabled = {loading} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium">
-      {loading ? "Calculating overpasses...": "Track Target"}
+      {loading ? "Calculating overpasses...": "Track Target(Ignore the straight horizantal line :))"}
       </button>
     </form>
 

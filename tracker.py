@@ -6,6 +6,7 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 from skyfield.api import load,wgs84
 from skyfield.sgp4lib import EarthSatellite
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
 CORS(app)
@@ -79,16 +80,57 @@ def get_satellite_passes():
         predicter = PassPredicter(satellite, lat,lon)
         passes = predicter.generate_passes()
 
+        ts = load.timescale()
+        t_now = ts.now()
+        geocentric = satellite.at(t_now)
+        subpoint = wgs84.subpoint(geocentric)
+
+        current_lat = subpoint.latitude.degrees
+        current_lon = subpoint.longitude.degrees
+
+        raw_points = []
+        t_now = ts.now()
+
+        for minutes in range (0, 120, 2):
+            t_future = t_now + (min/1440)
+            geo_future = satellite.at(t_future)
+            sub_future = wgs84.subpoint(geo_future)
+            raw_points.append([float(sub_future.latitude.degrees), float(sub_future.longitude.degrees)])
+
+        path_segments = []
+        current_segment = []
+
+        for i, point in enumerate(raw_points):
+            if i == 0:
+                current_segment.append(point)
+                continue
+
+            prev_point = raw_points[i-1]
+
+            if abs(point[1]- prev_point[1]) > 180:
+                path_segments.append(current_segment)
+                current_segment = []
+
+            current_segment.append(point)
+
+        if current_segment:
+            path_segments.append(current_segment)
+
         return jsonify({
             "success" :True,
             "satellite_name": satellite.name.strip(),
             "norad_id": sat_id,
+            "satellite_lat": current_lat,
+            "satellite_lon": current_lon,
+            "path_coordinates": path_segments,
             "observer": {"lat": lat, "lon": lon},
             "passes":passes
         })
     
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 400
+        import traceback
+        traceback.print_exc()
+        return jsonify ({"success": False, "error": str(e)}),400
     
 
 if __name__ == "__main__":
