@@ -1,76 +1,139 @@
+import time
+import argparse
+import urllib.error
+from pathlib import Path
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-import requests
-from datetime import datetime,timedelta, timezone
-from skyfield.api import load, EarthSatellite, wgs84
-import os
+from skyfield.api import load,wgs84
+from skyfield.sgp4lib import EarthSatellite
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
 CORS(app)
 
-ts = load.timescale()
-def get_satellite_object(sat_id, minutes_offset=0):
-    try:
-        url = f"https://celestrak.org/NORAD/elements/gp.php?CATNR={sat_id}&FORMAT=TLE"
-        responses = requests.get(url, timeout = 5)
+class SatelliteEngine:
+    def __init__(self, norad_id: int, cache_duration: int = 86400):
+        self.norad_id = norad_id
+        self.cache_duration = cache_duration
+        self.filename = Path(f'sat_{norad_id}.tle')
 
-        if responses.status_code !=200 or not responses.text.strip():
-            return None,  "Invalid Satellite ID" 
-        
-        lines = responses.text.strip().split('\n')
-        if len(lines) <3:
-            return None,"Could not find a valid TLE"
-        
+    def get_satellite(self):
+        satellites = None
 
-        sat_name = lines[0].strip()
-        line1 = lines[1].strip()
-        line2 = lines[2].strip()
-
-        satellite = EarthSatellite(line1, line2, sat_name, ts)
-
-        return satellite, None
+        if self.filename.exists() and (time.time()- self.filename.stat().st_mtime < self.cache_duration):
+            try:
+                print(f"Loading..")
+                satellites = load.tle_file(str(self.filename))
+            except Exception:
+                print("Corrupted! Deleting the file")
+                self.filename.unlink(missing_ok=True)
+            
+        if not satellites:
+                print("Downloading data..")
+                url = f'https://celestrak.org/NORAD/elements/gp.php?CATNR={self.norad_id}&FORMAT=TLE'
+                try:
+                    satellites = load.tle_file(url, reload = True, filename=str(self.filename))
+                except urllib.error.HTTPError as e:
+                    raise ValueError(f"Satellite ID {self.norad_id} not found in CelesTrak")
+                except Exception as e:
+                    raise ValueError(f"Network Error")
+                
+        if not satellites:
+            raise ValueError(f"Failed to parse TLE for ID: {self.norad_id}")
+            
+        return satellites[0]
     
-    except Exception as e:
-        return None, str(e)
-    
-def propagate_position(satellite, minutes_offset = 0):
-    target_time = datetime.now(timezone.utc) + timedelta(minutes = minutes_offset)
-    skyfield_time = ts.from_datetime(target_time)
+class PassPredicter:
+    def __init__(self, satellite, lat:float, lon: float, horizon_degrees: float = 10.0):
+        self.satellite = satellite
+        self.observer = wgs84.latlon(lat,lon)
+        self.horizon = horizon_degrees
+        self.ts = load.timescale()
 
-    geocentric = satellite.at(skyfield_time)
-    subpoint = wgs84.subpoint(geocentric)
-    return round(subpoint.latitude.degrees, 4), round(subpoint.longitude.degrees,4)
+
+    def generate_passes(self):
+        t0 = self.ts.now()
+        t1 = self.ts.utc(t0.utc_datetime().year, t0.utc_datetime().month, t0.utc_datetime().day + 1)
+        times, events = self.satellite.find_events(self.observer, t0, t1, altitude_degrees = self.horizon)
+
+        pass_list = []
+        for ti, event in zip(times, events):
+            event_name = ('rise', 'culminate', 'set')[event]
+            pass_list.append({
+                "timestamp" : ti.utc_strftime('%Y-%m-%d %H:%M:%S'),
+                "status":event_name
+            })
+        return pass_list
+    
+
 
 @app.route('/api/track', methods = ['GET'])
-def track_satellite():
-    sat_id = request.args.get('sat', '25544')
-    user_lat = request.args.get('lat', '27.26')
-    user_lon = request.args.get('lon', '85.36')
+def get_satellite_passes():
+    try:
+        lat = float(request.args.get('lat', 51.477928))
+        lon = float(request.args.get('lon', 0.001545))
+        sat_id = int(request.args.get('sat', 25544))
 
-    satellite, error = get_satellite_object(sat_id)
-    if error:
-        return jsonify({"success":False, "error": error}), 400
+        engine = SatelliteEngine(norad_id = sat_id)
+        satellite = engine.get_satellite()
 
-    current_lat, current_lon = propagate_position(satellite,0)
+        predicter = PassPredicter(satellite, lat,lon)
+        passes = predicter.generate_passes()
 
-    path_coordinates = []
-    for m in range (0,93,3):
-        lat, lon = propagate_position(satellite,m)
-        path_coordinates.append([lat, lon])
+        ts = load.timescale()
+        t_now = ts.now()
+        geocentric = satellite.at(t_now)
+        subpoint = wgs84.subpoint(geocentric)
 
+        current_lat = subpoint.latitude.degrees
+        current_lon = subpoint.longitude.degrees
 
-    return jsonify({
-        "success":True,
-        "satellite_name": satellite.name,
-        "norad_id":int(sat_id) if sat_id.isdigit() else 25544,
-        "satellite_lat":current_lat,
-        "satellite_lon":current_lon,
-        "path_coordinates":
-            path_coordinates,
-            
-        "observer":{"lat": float(user_lat), "lon": float(user_lon)}
-    })
+        raw_points = []
+        t_now = ts.now()
 
-if __name__ == '__main__':
+        for minutes in range (0, 120, 2):
+            t_future = t_now + (minutes/1440)
+            geo_future = satellite.at(t_future)
+            sub_future = wgs84.subpoint(geo_future)
+            raw_points.append([float(sub_future.latitude.degrees), float(sub_future.longitude.degrees)])
+
+        path_segments = []
+        current_segment = []
+
+        for i, point in enumerate(raw_points):
+            if i == 0:
+                current_segment.append(point)
+                continue
+
+            prev_point = raw_points[i-1]
+
+            if abs(point[1]- prev_point[1]) > 180:
+                path_segments.append(current_segment)
+                current_segment = []
+
+            current_segment.append(point)
+
+        if current_segment:
+            path_segments.append(current_segment)
+
+        return jsonify({
+            "success" :True,
+            "satellite_name": satellite.name.strip(),
+            "norad_id": sat_id,
+            "satellite_lat": current_lat,
+            "satellite_lon": current_lon,
+            "path_coordinates": path_segments,
+            "observer": {"lat": lat, "lon": lon},
+            "passes":passes
+        })
+    
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify ({"success": False, "error": str(e)}),400
+    
+
+if __name__ == "__main__":
+    import os
     port = int(os.environ.get("PORT", 5000))
     app.run(host = '0.0.0.0', port = port, debug = False)
