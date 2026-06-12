@@ -3,6 +3,7 @@ from flask_cors import CORS
 import requests
 from datetime import datetime,timedelta, timezone
 from skyfield.api import load, EarthSatellite, wgs84
+import os
 
 app = Flask(__name__)
 CORS(app)
@@ -71,4 +72,5 @@ def track_satellite():
     })
 
 if __name__ == '__main__':
-    app.run(debug=True, port = 5000)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host = '0.0.0.0', port = port, debug = False)
