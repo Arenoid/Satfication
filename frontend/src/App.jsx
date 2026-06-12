@@ -83,12 +83,12 @@ return (
     </form>
 
     <SatelliteMap 
-    lat={lat} 
-    lon={lon}
-    satLat={trackingData?.satellite_lat}
-    satLon={trackingData?.satellite_lon}
+    lat = {lat}
+    lon = {lon}
+    satLat = {trackingData?.satellite_lat}
+    satLon= {trackingData?.trackingData?.satellite_lon}
     satName = {trackingData?.satellite_name}
-    pathPoints={trackingData?.path_coordinates} 
+    pathPoints={trackingData?.path_coordinates}
     />
 
     {error && (

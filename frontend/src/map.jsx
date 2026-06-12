@@ -1,28 +1,30 @@
 import React, { useEffect } from "react";
 import {MapContainer, TileLayer, CircleMarker, useMap, Popup, Polyline} from 'react-leaflet';
 import 'leaflet/dist/leaflet.css'
-import { circleMarker } from "leaflet";
 
-function MapRecenter({center}){
+function MapRecenter({lat, lon}){
     const map = useMap();
+
     useEffect(() =>{
-        if(map && center && !isNaN(center[0]) && !isNaN(center[1])){
-            map.setView(center, map.getZoom());
+        if(map && !isNaN(lat) && !isNaN(lon)){
+            try{
+                map.setView([lat, lon], map.getZoom());
 
-            const timer = setTimeout(() => {
-                if(map && map.getContainer()){
-                    map.invalidateSize();
-                }
-            }, 100);
-            return() => clearTimeout(timer);
+                const timer = setTimeout(() => {
+                    if(map && map.getContainer()){
+                        map.invalidateSize();
+                    }
+                },100);
+                return () => clearTimeout(timer);
+            } catch(error){
+                console.error("Map not working:", error)
+            }
         }
-    }, [map, center]);
-    return null;
-}
-
+    },[map, lat, lon])
+} 
 export default function SatelliteMap({lat, lon, satLat, satLon, satName, pathPoints}){
-    const parsedLat = parseFloat(lat) || 51.477928;
-    const parsedLon = parseFloat(lon) || -0.001545;
+    const parsedLat = isNaN(parseFloat(lat)) ? 51.477928 : parseFloat(lat);
+    const parsedLon = isNaN(parseFloat(lon)) ? -0.001545: parseFloat(lon);
     const observerCoordinates = [parsedLat,parsedLon];
 
     const parsedSatLat = parseFloat(satLat);
@@ -61,7 +63,7 @@ export default function SatelliteMap({lat, lon, satLat, satLon, satName, pathPoi
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
                 url = "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png"
                 />
-                <MapRecenter center={observerCoordinates}/>
+                <MapRecenter lat = {parsedLat} lon = {parsedLon}/>
                 <CircleMarker
                 center = {observerCoordinates}
                 radius = {8}
