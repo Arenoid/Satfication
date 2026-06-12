@@ -76,21 +76,25 @@ export default function SatelliteMap({lat, lon, satLat, satLon, satName, pathPoi
                         </div>
                     </Popup>
                     </CircleMarker>
-
-                    {satLat && satLon && (
+                
+                {hasValidSatCoords && (
                     <CircleMarker
-                    center={[parseFloat(satLat), parseFloat(satLon)]}
+                    center = {[parsedSatLat, parsedSatLon]}
                     radius = {10}
-                    pathOptions={{ color: '#dc2626', fillColor: '#ef4444', fillOpacity: 0.9, weight: 2 }}
+                    pathOptions={{color: 'red', fillColor: '#ef4444', fillOpacity: 0.9, weight:2}}  
                     >
+
                         <Popup>
-                            <div className = "text-center font-sans">
-                                <p className="font-bold text-red-600">{satName || "Satellite"}</p>
-                                <p className = "text-xs text-gray-500">Lat: {satLat}° | Lon:{satLon}°</p>
+                            <div className="text-center font-sans">
+                            <p className="font-bold text-red-600">{satName || "Satellite"}</p>
+                            <p className="text-xs text-gray-500">Lat: {parsedSatLat}° | Lon : {parsedSatLon}°</p>
                             </div>
                         </Popup>
                     </CircleMarker>
                 )}
+  
+  
+  
                 {pathPoints && pathPoints.length>0 && (
                     <Polyline
                         positions={pathPoints}

@@ -2,6 +2,8 @@
 
 A real-time, satellite tracking application that predicts the orbital path of a entered satellite relative to the observers latitude and longitude
 
+
+
 # Workings
 - Fetches all the satellite data from CelesTrak API.
 - Fetched data is then fed into the map using leaflet and also added indexing for searching for various satellites.

@@ -86,7 +86,7 @@ return (
     lat = {lat}
     lon = {lon}
     satLat = {trackingData?.satellite_lat}
-    satLon= {trackingData?.trackingData?.satellite_lon}
+    satLon= {trackingData?.satellite_lon}
     satName = {trackingData?.satellite_name}
     pathPoints={trackingData?.path_coordinates}
     />
