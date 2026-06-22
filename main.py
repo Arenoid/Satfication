@@ -57,13 +57,37 @@ class PassPredicter:
         times, events = self.satellite.find_events(self.observer, t0, t1, altitude_degrees = self.horizon)
 
         pass_list = []
-        for ti, event in zip(times, events):
+        current_pass = {}
+
+        for ti, event in zip(times,events):
             event_name = ('rise', 'culminate', 'set')[event]
-            pass_list.append({
-                "timestamp" : ti.utc_strftime('%Y-%m-%d %H:%M:%S'),
-                "status":event_name
-            })
+
+            difference = self.satellite - self.observer
+            distance_km = difference.at(ti).distance().km
+
+            if event_name == 'rise':
+                current_pass = {"rise": ti.utc_strftime('%Y-%m-%d %H:%M:%S')}
+            
+            elif event_name == 'culminate':
+                if not current_pass:
+                    current_pass = {"rise": "Already Overhead"}
+                current_pass["closest_approach_km"] = round(distance_km, 2)
+                current_pass["peak_time"] = ti.utc_strftime('%H:%M:%S')
+
+            elif event_name == 'set':
+                if not current_pass:
+                    current_pass = {"rise": "Already Overhead", "closest_approach_km": "N/A", "peak_time": "N/A"}
+                current_pass["set"] = ti.utc_strftime('%H:%M:%S')
+                pass_list.append(current_pass)
+                current_pass = {}
+
         return pass_list
+    
+    def get_nearest_distance(self):
+        t_now = self.ts.now()
+        difference = self.satellite-self.observer
+        topocentric = difference.at(t_now)
+        return topocentric.distance().km
     
 
 
@@ -80,6 +104,8 @@ def get_satellite_passes():
         predicter = PassPredicter(satellite, lat,lon)
         passes = predicter.generate_passes()
 
+        current_distance = predicter.get_nearest_distance()
+
         ts = load.timescale()
         t_now = ts.now()
         geocentric = satellite.at(t_now)
@@ -89,8 +115,6 @@ def get_satellite_passes():
         current_lon = subpoint.longitude.degrees
 
         raw_points = []
-        t_now = ts.now()
-
         for minutes in range (0, 120, 2):
             t_future = t_now + (minutes/1440)
             geo_future = satellite.at(t_future)
@@ -110,7 +134,6 @@ def get_satellite_passes():
             if abs(point[1]- prev_point[1]) > 180:
                 path_segments.append(current_segment)
                 current_segment = []
-
             current_segment.append(point)
 
         if current_segment:
@@ -124,7 +147,8 @@ def get_satellite_passes():
             "satellite_lon": current_lon,
             "path_coordinates": path_segments,
             "observer": {"lat": lat, "lon": lon},
-            "passes":passes
+            "passes":passes,
+            "current_distance_km": round(current_distance,2)
         })
     
     except Exception as e:

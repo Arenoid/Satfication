@@ -21,6 +21,7 @@ function MapRecenter({lat, lon}){
             }
         }
     },[map, lat, lon])
+    return null
 } 
 export default function SatelliteMap({lat, lon, satLat, satLon, satName, pathPoints}){
     const parsedLat = isNaN(parseFloat(lat)) ? 51.477928 : parseFloat(lat);
