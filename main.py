@@ -114,8 +114,7 @@ def get_satellite_passes():
         passes = predicter.generate_passes()
 
         current_distance = predicter.get_nearest_distance()
-
-        ts = load.timescale()
+        
         t_now = ts.now()
         geocentric = satellite.at(t_now)
         subpoint = wgs84.subpoint(geocentric)
