@@ -12,6 +12,7 @@ import math
 app = Flask(__name__)
 CORS(app)
 
+
 class SatelliteEngine:
     def __init__(self, norad_id: int, cache_duration: int = 86400):
         self.norad_id = norad_id
@@ -31,7 +32,7 @@ class SatelliteEngine:
             
         if not satellites:
                 print("Downloading data..")
-                url = f'https://celestrak.org/NORAD/elements/gp.php?CATNR={self.norad_id}&FORMAT=TLE'
+                url = f'https://celestrak.org/NORAD/elements/active.txt'
                 try:
                     satellites = load.tle_file(url, reload = False, filename=str(self.filename))
                 except urllib.error.HTTPError as e:
@@ -42,7 +43,11 @@ class SatelliteEngine:
         if not satellites:
             raise ValueError(f"Failed to parse TLE for ID: {self.norad_id}")
             
-        return satellites[0]
+        for sat in satellites:
+            if sat.model.satnum == self.norad_id:
+                return sat
+            
+        raise ValueError(f"Satellite ID {self.norad_id} not found in active datbase!")
 
 ts = load.timescale()
 
@@ -97,9 +102,9 @@ class PassPredicter:
 
 @app.route('/api/track', methods = ['GET', 'HEAD'])
 def get_satellite_passes():
-    if request.method == 'HEAD' or not request.args.get('lat'):
+    if request.method == 'HEAD':
         return jsonify({
-            "success":True,
+            "success": True,
             "message": "Ready!"
         }), 200
     try:
@@ -114,7 +119,7 @@ def get_satellite_passes():
         passes = predicter.generate_passes()
 
         current_distance = predicter.get_nearest_distance()
-        
+
         t_now = ts.now()
         geocentric = satellite.at(t_now)
         subpoint = wgs84.subpoint(geocentric)
