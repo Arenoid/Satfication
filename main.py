@@ -7,6 +7,7 @@ from flask_cors import CORS
 from skyfield.api import load,wgs84
 from skyfield.sgp4lib import EarthSatellite
 from datetime import datetime, timedelta
+import math
 
 app = Flask(__name__)
 CORS(app)
@@ -119,7 +120,7 @@ def get_satellite_passes():
             t_future = t_now + (minutes/1440)
             geo_future = satellite.at(t_future)
             sub_future = wgs84.subpoint(geo_future)
-            raw_points.append([float(sub_future.latitude.degrees), float(sub_future.longitude.degrees)])
+            raw_points.append([round(float(sub_future.latitude.degrees),5), round(float(sub_future.longitude.degrees), 5)])
 
         path_segments = []
         current_segment = []
@@ -139,15 +140,18 @@ def get_satellite_passes():
         if current_segment:
             path_segments.append(current_segment)
 
+        
+        clean_name = str(satellite.name).split('\n')[0].strip()
+
         return jsonify({
             "success" :True,
-            "satellite_name": satellite.name.strip(),
+            "satellite_name": clean_name or f"SAT {sat_id}",
             "norad_id": sat_id,
-            "satellite_lat": current_lat,
-            "satellite_lon": current_lon,
-            "path_coordinates": path_segments,
-            "observer": {"lat": lat, "lon": lon},
-            "passes":passes,
+            "satellite_lat": round(current_lat, 5),
+            "satellite_lon": round(current_lon,5),
+            "pathPoints": path_segments,
+            "observer": {"lat": round(lat, 5), "lon": round(lon, 5)},
+            "trackingPasses":passes,
             "current_distance_km": round(current_distance,2)
         })
     
@@ -159,5 +163,5 @@ def get_satellite_passes():
 
 if __name__ == "__main__":
     import os
-    port = int(os.environ.get("PORT", 5000))
+    port = int(os.environ.get("PORT", 8080))
     app.run(host = '0.0.0.0', port = port, debug = False)

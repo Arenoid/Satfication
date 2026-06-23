@@ -125,8 +125,9 @@ export default function SatelliteMap({lat, lon, satLat, satLon, satName, pathPoi
 
                 allPoints.forEach(([pLat, pLon]) => {
                     const dLat = pLat - parsedLat
-                    const dLon = pLon - parsedLon
+                    const dLon = (pLon - parsedLon)* Math.cos((parsedLat*Math.PI)/180)
                     const distSq = dLat * dLat + dLon * dLon
+
                     if (distSq < minDistanceSq) {
                         minDistanceSq = distSq
                         calculatedClosestPoint = [pLat, pLon]
@@ -153,7 +154,7 @@ export default function SatelliteMap({lat, lon, satLat, satLon, satName, pathPoi
                                     <p className="text-gray-600 font-mono mt-1 font-bold">
                                             Range: {isNaN(dist) ? "N/A" : `${dist.toFixed(1)} km`}
                                     </p>
-                                 <p className="text-[10px] text-gray-400 mt-0.5">Peak Time: {pass?.peak_time || "Unknown"}</p>
+                                    <p className="text-[10px] text-gray-400 mt-0.5">Peak Time: {pass?.peak_time || "Unknown"}</p>
                                     </div>
                                 </Popup>
                             </CircleMarker>
@@ -166,15 +167,15 @@ export default function SatelliteMap({lat, lon, satLat, satLon, satName, pathPoi
                         key={`auto-intercept-${calculatedClosestPoint[0]}-${calculatedClosestPoint[1]}`}
                         center={calculatedClosestPoint}
                         radius={10}
-                        pathOptions={{ color: "#a855f7", fillColor: "#a855f7", fillOpacity: 0.9, weight: 2 }}
+                        pathOptions={{ color: "green", fillColor: "green", fillOpacity: 0.9, weight: 2 }}
                     >
                         <Popup>
                             <div className="text-center font-sans text-xs">
-                            <p className="font-bold text-purple-600">Calculated Intercept Point</p>
+                            <p className="font-bold text-green-600">Calculated Intercept Point</p>
                             <p className="text-gray-500 font-mono text-[11px] mt-1">
-                                    Lat: {calculatedClosestPoint[0].toFixed(3)}° | Lon: {calculatedClosestPoint[1].toFixed(3)}°
+                            Lat: {calculatedClosestPoint[0].toFixed(3)}° | Lon:{calculatedClosestPoint[1].toFixed(3)}°
                             </p>
-                            <p className="text-[10px] text-gray-400 mt-0.5">Waiting for backend schedule telemetry...</p>
+                            <p className="text-[10px] text-gray-400 mt-0.5"></p>
                             </div>
                         </Popup>
                     </CircleMarker>
