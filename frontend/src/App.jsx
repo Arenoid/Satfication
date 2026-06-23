@@ -90,6 +90,7 @@ return (
     satLon= {trackingData?.satellite_lon}
     satName = {trackingData?.satellite_name}
     pathPoints={trackingData?.path_coordinates}
+    trackingPasses = {trackingData?.passess}
     />
 
     {error && (

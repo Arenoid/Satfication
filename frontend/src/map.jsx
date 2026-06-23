@@ -23,7 +23,7 @@ function MapRecenter({lat, lon}){
     },[map, lat, lon])
     return null
 } 
-export default function SatelliteMap({lat, lon, satLat, satLon, satName, pathPoints}){
+export default function SatelliteMap({lat, lon, satLat, satLon, satName, pathPoints, trackingPasses}){
     const parsedLat = isNaN(parseFloat(lat)) ? 51.477928 : parseFloat(lat);
     const parsedLon = isNaN(parseFloat(lon)) ? -0.001545: parseFloat(lon);
     const observerCoordinates = [parsedLat,parsedLon];
@@ -31,6 +31,15 @@ export default function SatelliteMap({lat, lon, satLat, satLon, satName, pathPoi
     const parsedSatLat = parseFloat(satLat);
     const parsedSatLon = parseFloat(satLon);
     const hasValidSatCoords = !isNaN(parsedSatLat) && !isNaN(parsedSatLon);
+
+    const MAX_RADIUS_KM = 50000;
+    const getApproachColor = (distance) =>{
+        if(!distance || distance > MAX_RADIUS_KM) return null;
+        if(distance <=800) return {color: "green", fill:'green', label: 'Close Pass'}
+        if(distance <=1800) return {color: "yellow", fill:'yellow', label: 'Mid Pass'}
+        return {color: "red", fill:'red', label: 'Far Pass'}
+    }
+
 
     const renderPathSegments = () => {
         if (!Array.isArray(pathPoints) || pathPoints.length === 0) return []
@@ -53,7 +62,7 @@ export default function SatelliteMap({lat, lon, satLat, satLon, satName, pathPoi
     const validSegment = renderPathSegments();
 
     return(
-        <div className = "border rounded-xl overflow-hidden shadow-md bg-white flex flex-col">
+        <div className = "border rounded-xl overflow-hidden shadow-md bg-white flex flex-col h-[75vh]">
             <div className = "bg-slate-800 text-white px-4 py-3 font-semibold flex justify-between items-center">
                 <span>Live Orbit:{satName || "No Target"}</span>
                 <span className="text-xs text-slate-400">Observer Lat:{parsedLat}° | Lon: {parsedLon}°</span>
@@ -103,9 +112,74 @@ export default function SatelliteMap({lat, lon, satLat, satLon, satName, pathPoi
                         </Popup>
                     </CircleMarker>
                 )}
+
+           
   
-  
-  
+
+            {(() => {
+                const allPoints = validSegment.flat(1)
+                if (allPoints.length === 0) return null
+
+                let calculatedClosestPoint = allPoints[0]
+                let minDistanceSq = Infinity
+
+                allPoints.forEach(([pLat, pLon]) => {
+                    const dLat = pLat - parsedLat
+                    const dLon = pLon - parsedLon
+                    const distSq = dLat * dLat + dLon * dLon
+                    if (distSq < minDistanceSq) {
+                        minDistanceSq = distSq
+                        calculatedClosestPoint = [pLat, pLon]
+                    }
+                })
+
+                if (Array.isArray(trackingPasses) && trackingPasses.length > 0) {
+                    return trackingPasses.map((pass, index) => {
+                        const dist = parseFloat(pass?.closest_approach_km)
+                        const config = getApproachColor(dist)
+                        const activeConfig = config || { color: "purple", fill: "purple", label: "Global Pass" }
+
+                        return (
+                            <CircleMarker
+                                key={`intercept-pass-${index}-${calculatedClosestPoint[0]}-${calculatedClosestPoint[1]}`}
+                                center={calculatedClosestPoint}
+                                radius={10}
+                                pathOptions={{ color: activeConfig.color, fillColor: activeConfig.fill, fillOpacity: 0.9, weight: 2 }}
+                            >
+                                <Popup>
+                                    <div className="text-center font-sans text-xs">
+                                    <p className="font-bold text-gray-800">Pass #{index + 1} Intercept</p>
+                                    <p className="font-semibold mt-0.5" style={{ color: activeConfig.color }}>{activeConfig.label}</p>
+                                    <p className="text-gray-600 font-mono mt-1 font-bold">
+                                            Range: {isNaN(dist) ? "N/A" : `${dist.toFixed(1)} km`}
+                                    </p>
+                                 <p className="text-[10px] text-gray-400 mt-0.5">Peak Time: {pass?.peak_time || "Unknown"}</p>
+                                    </div>
+                                </Popup>
+                            </CircleMarker>
+                        )
+                    })
+                }
+
+                return (
+                    <CircleMarker
+                        key={`auto-intercept-${calculatedClosestPoint[0]}-${calculatedClosestPoint[1]}`}
+                        center={calculatedClosestPoint}
+                        radius={10}
+                        pathOptions={{ color: "#a855f7", fillColor: "#a855f7", fillOpacity: 0.9, weight: 2 }}
+                    >
+                        <Popup>
+                            <div className="text-center font-sans text-xs">
+                            <p className="font-bold text-purple-600">Calculated Intercept Point</p>
+                            <p className="text-gray-500 font-mono text-[11px] mt-1">
+                                    Lat: {calculatedClosestPoint[0].toFixed(3)}° | Lon: {calculatedClosestPoint[1].toFixed(3)}°
+                            </p>
+                            <p className="text-[10px] text-gray-400 mt-0.5">Waiting for backend schedule telemetry...</p>
+                            </div>
+                        </Popup>
+                    </CircleMarker>
+                )
+            })()}
                 {validSegment.map((segment, index)=>
                     <Polyline
                         key={index}
