@@ -16,7 +16,7 @@ const handleTrack = async(e) =>{
 
 try {
   const response = await fetch(
-    fetch(`https://satfication.onrender.com/api/track?lat=${lat}&lon=${lon}&sat=${satId}`)
+    `https://satfication.onrender.com/api/track?lat=${lat}&lon=${lon}&sat=${satId}`
   );
   const data = await response.json()
 
@@ -89,8 +89,8 @@ return (
     satLat = {trackingData?.satellite_lat}
     satLon= {trackingData?.satellite_lon}
     satName = {trackingData?.satellite_name}
-    pathPoints={trackingData?.path_coordinates}
-    trackingPasses = {trackingData?.passess}
+    pathPoints={trackingData?.pathPoints}
+    trackingPasses = {trackingData?.trackingPasses}
     />
 
     {error && (
@@ -98,7 +98,7 @@ return (
         <strong>Error:</strong>{error}
       </div>
     )}
-    {trackingData && trackingData.success && Array.isArray(trackingData.passes) && (
+    {trackingData && trackingData.success && Array.isArray(trackingData.trackingPasses) && (
       <div className='border rounded-lg overflow-hidden shadow-sm bg-white'>
         <div className='bg-gray-100 p-4 border-b'>
           <h2 className='text-xl font-bold text-gray-800'>{trackingData.satellite_name}</h2>
@@ -111,7 +111,7 @@ return (
             <span className = "font-mono text-base font-bold text-blue-600">{trackingData.current_distance_km}km</span>
             </div>
           <ul className='divide-y text-sm text-gray-700 divide-gray-100'>
-            {trackingData.passes.map((pass,index) =>(
+            {trackingData.trackingPasses.map((pass,index) =>(
               <li key = {index} className='p-3 flex justify-between items-center hover:bg-gray-50'>
                 <div className='flex justify-between items-center'>
                   <span className='font-bold text-gray-800'>Pass #{index + 1}</span>
