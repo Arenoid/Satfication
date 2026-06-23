@@ -33,7 +33,7 @@ class SatelliteEngine:
                 print("Downloading data..")
                 url = f'https://celestrak.org/NORAD/elements/gp.php?CATNR={self.norad_id}&FORMAT=TLE'
                 try:
-                    satellites = load.tle_file(url, reload = True, filename=str(self.filename))
+                    satellites = load.tle_file(url, reload = False, filename=str(self.filename))
                 except urllib.error.HTTPError as e:
                     raise ValueError(f"Satellite ID {self.norad_id} not found in CelesTrak")
                 except Exception as e:
@@ -43,13 +43,16 @@ class SatelliteEngine:
             raise ValueError(f"Failed to parse TLE for ID: {self.norad_id}")
             
         return satellites[0]
-    
+
+ts = load.timescale()
+
+
 class PassPredicter:
     def __init__(self, satellite, lat:float, lon: float, horizon_degrees: float = 10.0):
         self.satellite = satellite
         self.observer = wgs84.latlon(lat,lon)
         self.horizon = horizon_degrees
-        self.ts = load.timescale()
+        self.ts = ts
 
 
     def generate_passes(self):
@@ -92,8 +95,13 @@ class PassPredicter:
     
 
 
-@app.route('/api/track', methods = ['GET'])
+@app.route('/api/track', methods = ['GET', 'HEAD'])
 def get_satellite_passes():
+    if request.method == 'HEAD' or not request.args.get('lat'):
+        return jsonify({
+            "success":True,
+            "message": "Ready!"
+        }), 200
     try:
         lat = float(request.args.get('lat', 51.477928))
         lon = float(request.args.get('lon', 0.001545))
