@@ -16,7 +16,7 @@ const handleTrack = async(e) =>{
 
 try {
   const response = await fetch(
-    `http://127.0.0.1:5000/api/track?lat=${lat}&lon=${lon}&sat=${satId}`
+    fetch(`https://satfication.onrender.com/api/track?lat=${lat}&lon=${lon}&sat=${satId}`)
   );
   const data = await response.json()
 
