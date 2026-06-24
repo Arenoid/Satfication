@@ -1,36 +1,35 @@
-import React, {useState} from 'react';
-import SatelliteMap from './map';
-
+import React, {useState} from 'react'
+import SatelliteMap from './map'
 export default function App(){
-  const [satId, setSatId] = useState('20580');
-  const [lat, setLat] = useState('27.26');
-  const [lon, setLon] = useState('85.36');
-  const [loading, setLoading] = useState(false);
+  const [satId, setSatId] = useState('20580')
+  const [lat, setLat] = useState('27.26')
+  const [lon, setLon] = useState('85.36')
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
-  const [trackingData, setTrackingData] = useState(null);
+  const [trackingData, setTrackingData] = useState(null)
 
 const handleTrack = async(e) =>{
-  e.preventDefault();
-  setLoading(true);
-  setError(null);
+  e.preventDefault()
+  setLoading(true)
+  setError(null)
 
 try {
   const response = await fetch(
-    `https://satfication.onrender.com/api/track?lat=${lat}&lon=${lon}&sat=${satId}`
+    `http://127.0.0.1:8080/api/track?lat=${lat}&lon=${lon}&sat=${satId}`
   );
   const data = await response.json()
 
   if(data.success){
-    setTrackingData(data);
+    setTrackingData(data)
   }else{
-    setTrackingData(null);
-    setError(data.error || "Failed to fetch data.");
+    setTrackingData(null)
+    setError(data.error || "Failed to fetch data.")
   }
 } catch (err){
   setTrackingData(null);
-  setError("Unable to connect to tracking server!");
+  setError("Unable to connect to tracking server!")
 } finally{
-  setLoading(false);
+  setLoading(false)
 };
 }
 
