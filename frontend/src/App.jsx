@@ -1,5 +1,6 @@
 import React, {useState} from 'react'
 import SatelliteMap from './map'
+
 export default function App(){
   const [satId, setSatId] = useState('20580')
   const [lat, setLat] = useState('27.26')
@@ -9,13 +10,13 @@ export default function App(){
   const [trackingData, setTrackingData] = useState(null)
 
 const handleTrack = async(e) =>{
-  e.preventDefault()
+  e.preventDefault();
   setLoading(true)
   setError(null)
 
 try {
   const response = await fetch(
-    `http://127.0.0.1:8080/api/track?lat=${lat}&lon=${lon}&sat=${satId}`
+    `https://satfication.onrender.com/api/track?lat=${lat}&lon=${lon}&sat=${satId}`
   );
   const data = await response.json()
 
@@ -26,8 +27,8 @@ try {
     setError(data.error || "Failed to fetch data.")
   }
 } catch (err){
-  setTrackingData(null);
-  setError("Unable to connect to tracking server!")
+  setTrackingData(null)
+  setError("Unable to connect to tracking server!");
 } finally{
   setLoading(false)
 };

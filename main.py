@@ -8,6 +8,7 @@ from skyfield.api import load, wgs84
 from skyfield.sgp4lib import EarthSatellite
 from datetime import datetime, timedelta
 import math
+import requests
 
 app = Flask(__name__)
 CORS(app)
@@ -19,8 +20,21 @@ class SatelliteEngine:
         self.filename = Path(f'sat_{norad_id}.tle')
 
     def get_satellite(self):
-        satellites = load.tle_file(self.url, filename=str(self.filename), reload=False)
-        return satellites[0]
+        if self.filename.exists():
+            file_age = time.time()- self.filename.stat().st_mtime
+            if file_age<86400:
+                return load.tle_file(str(self.filename))[0]
+            
+        try:
+            response = requests.get(self.url, timeout = 5)
+            response.raise_for_status()
+            with open(self.filename,'w') as f:
+                f.write(response.text)
+            return load.tle_file(str(self.filename))[0]
+        except Exception as e:
+            if self.filename.exists():
+                return load.tle_file(str(self.filename))[0]
+            raise e
 
 ts = load.timescale()
 
