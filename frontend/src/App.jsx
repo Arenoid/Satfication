@@ -10,13 +10,13 @@ export default function App(){
   const [trackingData, setTrackingData] = useState(null)
 
 const handleTrack = async(e) =>{
-  e.preventDefault();
+  e.preventDefault()
   setLoading(true)
   setError(null)
 
 try {
   const response = await fetch(
-    `https://satfication.onrender.com/api/track?lat=${lat}&lon=${lon}&sat=${satId}`
+    `hhttps://satfication.onrender.com/api/track?lat=${lat}&lon=${lon}&sat=${satId}`
   );
   const data = await response.json()
 
@@ -28,7 +28,7 @@ try {
   }
 } catch (err){
   setTrackingData(null)
-  setError("Unable to connect to tracking server!");
+  setError("Unable to connect to tracking server!")
 } finally{
   setLoading(false)
 };
