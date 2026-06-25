@@ -31,7 +31,7 @@ class SatelliteEngine:
             with open(temp_file, 'w') as f:
                 f.write(response.text)
             
-            sat = load.tle_file(Str(temp_file))[0]
+            sat = load.tle_file(str(temp_file))[0]
             _CACHE[self.norad_id] = sat
             return sat
         except Exception as e:
