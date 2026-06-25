@@ -12,29 +12,30 @@ import requests
 
 app = Flask(__name__)
 CORS(app)
+_CACHE = {}
 
 class SatelliteEngine:
     def __init__(self, norad_id: int):
         self.norad_id = norad_id
         self.url = f"https://celestrak.org/NORAD/elements/gp.php?CATNR={norad_id}&FORMAT=TLE"
-        self.filename = Path(f'sat_{norad_id}.tle')
 
     def get_satellite(self):
-        if self.filename.exists():
-            file_age = time.time()- self.filename.stat().st_mtime
-            if file_age<86400:
-                return load.tle_file(str(self.filename))[0]
-            
+        if self.norad_id in _CACHE:
+            return _CACHE[self.norad_id]            
+        
         try:
             response = requests.get(self.url, timeout = 5)
             response.raise_for_status()
-            with open(self.filename,'w') as f:
+            
+            temp_file = Path(f'temp_{self.norad_id}.tle')
+            with open(temp_file, 'w') as f:
                 f.write(response.text)
-            return load.tle_file(str(self.filename))[0]
+            
+            sat = load.tle_file(Str(temp_file))[0]
+            _CACHE[self.norad_id] = sat
+            return sat
         except Exception as e:
-            if self.filename.exists():
-                return load.tle_file(str(self.filename))[0]
-            raise e
+            raise Exception(f"Network blocked for id {self.norad_id}. Cannot fetch TLE.")
 
 ts = load.timescale()
 
