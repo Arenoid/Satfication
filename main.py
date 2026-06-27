@@ -9,6 +9,28 @@ from skyfield.sgp4lib import EarthSatellite
 from datetime import datetime, timedelta
 import math
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
+session = requests.Session()
+
+retry = Retry(
+    total = 5,
+    connect =5,
+    read = 5,
+    backoff_factor=1,
+    status_forcelist=[429,500,502,503,504],
+    allowed_methods=frozenset(["GET"]),
+)
+
+adapter = HTTPAdapter(
+    max_retries=retry,
+    pool_connections=20,
+    pool_maxsize=20,
+)
+
+session.mount("https://", adapter)
+session.mount("http://", adapter)
 
 app = Flask(__name__)
 CORS(app)
@@ -24,18 +46,44 @@ class SatelliteEngine:
             return _CACHE[self.norad_id]            
         
         try:
-            response = requests.get(self.url, timeout = 5)
+            response = session.get(
+                self.url,
+                timeout=(15,30),
+                headers = {
+                    "User-Agent": "Satfication/1.0 (+https://satfication.vercel.app)"
+                },
+            )
             response.raise_for_status()
+
+            lines = response.text.strip().splitlines()
+
+            if len(lines)<3:
+                raise Exception("Invalid TLE recieved")
             
-            temp_file = Path(f'temp_{self.norad_id}.tle')
-            with open(temp_file, 'w') as f:
-                f.write(response.text)
-            
-            sat = load.tle_file(str(temp_file))[0]
+            sat = EarthSatellite(
+                lines[1],
+                lines[2],
+                lines[0],
+                ts
+            )
+
             _CACHE[self.norad_id] = sat
+
             return sat
+        
+        except requests.exceptions.Timeout as e:
+            raise Exception(f"Timeout while connecting to CelesTrak: {e}")
+        
+        except requests.exceptions.ConnectionError as e:
+            raise Exception(f"Connection Error: {e}")
+        
+        except requests.exceptions.HTTPError as e:
+            raise Exception(f"Celestrack returned HTTP {e.response.status_code}")
+        
+
         except Exception as e:
-            raise Exception(f"Network blocked for id {self.norad_id}. Cannot fetch TLE.")
+            raise Exception(f"{type(e).__name__}: {e}")
+        
 
 ts = load.timescale()
 
@@ -138,8 +186,44 @@ def get_satellite_passes():
         })
     except Exception as e:
         import traceback
+
         traceback.print_exc()
-        return jsonify({"success": False, "error": str(e)}), 400
+
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "type": type(e).__name__,
+        }), 503
+    
+
+@app.route("/api/network-test")
+def network_test():
+    try:
+        r = session.get(
+            "https://celestrak.org/NORAD/elements/gp.php?CATNR=25544&FORMAT=TLE",
+            timeout = (15,30),
+            headers = {
+                "User-Agent": "Satfication/1.0"
+            },
+        )
+
+        r.raise_for_status()
+
+        return jsonify({
+            "success": True,
+            "status": r.status_code,
+            "body": r.text[:200]
+        })
+    
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+
+        return jsonify({
+            "success": False,
+            "error": repr(e),
+            "type": type(e).__name__
+        }),500
 
 if __name__ == "__main__":
     import os
