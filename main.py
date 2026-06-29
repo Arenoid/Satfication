@@ -11,6 +11,7 @@ import math
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+import json
 
 session = requests.Session()
 
@@ -34,7 +35,10 @@ session.mount("http://", adapter)
 
 app = Flask(__name__)
 CORS(app)
-_CACHE = {}
+
+CACHE_DIR = Path("cache")
+CACHE_FILE = CACHE_DIR/ "tle_cache.json"
+CACHE_MAX_AGE = 60*60*12
 
 class SatelliteEngine:
     def __init__(self, norad_id: int):
@@ -42,48 +46,69 @@ class SatelliteEngine:
         self.url = f"https://celestrak.org/NORAD/elements/gp.php?CATNR={norad_id}&FORMAT=TLE"
 
     def get_satellite(self):
-        if self.norad_id in _CACHE:
-            return _CACHE[self.norad_id]            
-        
+        cache = {}
+        key = str(self.norad_id)
+
+        if CACHE_FILE.exists():
+            try:
+                with open(CACHE_FILE, "r") as f:
+                    cache = json.load(f)
+            except (ValueError, OSError):
+                cache = {}
+
+        if key in cache:
+            age = time.time() - cache[key].get("timestamp", 0)
+            if age < CACHE_MAX_AGE:
+                print(f"Loaded cached TLE for {self.norad_id}")
+                lines = cache[key]["tle"]
+                return EarthSatellite(
+                    lines[1],
+                    lines[2],
+                    lines[0],
+                    ts
+                )
+
         try:
             response = session.get(
                 self.url,
-                timeout=(15,30),
-                headers = {
-                    "User-Agent": "Satfication/1.0 (+https://satfication.vercel.app)"
-                },
+                timeout=(15, 30),
+                headers={"User-Agent": "Satfication/1.0"},
             )
             response.raise_for_status()
+            raw_lines = [line.strip() for line in response.text.strip().splitlines() if line.strip()]
+            if len(raw_lines) < 3:
+                raise ValueError("Unexpected TLE format")
 
-            lines = response.text.strip().splitlines()
+            lines = raw_lines[:3]
+            cache[key] = {"timestamp": time.time(), "tle": lines}
+            try:
+                with open(CACHE_FILE, "w") as f:
+                    json.dump(cache, f)
+            except OSError:
+                pass
 
-            if len(lines)<3:
-                raise Exception("Invalid TLE recieved")
-            
-            sat = EarthSatellite(
+            return EarthSatellite(
                 lines[1],
                 lines[2],
                 lines[0],
                 ts
             )
-
-            _CACHE[self.norad_id] = sat
-
-            return sat
-        
-        except requests.exceptions.Timeout as e:
-            raise Exception(f"Timeout while connecting to CelesTrak: {e}")
-        
-        except requests.exceptions.ConnectionError as e:
-            raise Exception(f"Connection Error: {e}")
-        
-        except requests.exceptions.HTTPError as e:
-            raise Exception(f"Celestrack returned HTTP {e.response.status_code}")
-        
-
         except Exception as e:
-            raise Exception(f"{type(e).__name__}: {e}")
+            if key in cache and "tle" in cache[key]:
+                print(f"Loaded cached TLE for {self.norad_id}")
+                print(f"Using stale cache {self.norad_id}")
+                lines = cache[key]["tle"]
+                return EarthSatellite(
+                    lines[1],
+                    lines[2],
+                    lines[0],
+                    ts
+                )
+            raise Exception(f"Failed to fetch TLE for {e}") from e
         
+print("Cache exists:", CACHE_FILE.exists())
+print("Cache path:", CACHE_FILE.resolve())
+                        
 
 ts = load.timescale()
 
