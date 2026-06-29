@@ -15,9 +15,9 @@ const handleTrack = async(e) =>{
   setError(null)
 
 try {
-  const response = await fetch(
-    `http://127.0.0.1:8080/api/track?lat=${lat}&lon=${lon}&sat=${satId}`
-  );
+ const response = await fetch(
+  `https://satfication-production.up.railway.app/api/track?lat=${lat}&lon=${lon}&sat=${satId}`
+);
   const data = await response.json()
 
   if(data.success){
